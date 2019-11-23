@@ -8,6 +8,6 @@ repository = "https://github.com/freemasen/hash-chain"
 readme = "README.md"
 description = "A tiered hashmap and hashset implementation that allows for easily representing lexically scoped variables"
 keywords = ["collections", "hashmap", "scope", "lexical"]
-categories = ["Data structures"]
+categories = ["data-structures"]
 
 [dependencies]
