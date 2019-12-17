@@ -3,6 +3,7 @@ use std::{
     borrow::Borrow,
     collections::HashMap,
     hash::Hash,
+    mem::replace,
     ops::{Index},
 };
 
@@ -47,8 +48,12 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        let map = self.maps.last_mut()?;
-        map.get_mut(key)
+        for map in self.maps.iter_mut().rev() {
+            if let Some(v) = map.get_mut(key) {
+                return Some(v);
+            }
+        }
+        None
     }
 
     pub fn new_child(&mut self) {
@@ -57,6 +62,15 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
 
     pub fn new_child_with(&mut self, map: HashMap<K, V>) {
         self.maps.push(map);
+    }
+
+    pub fn pop(&mut self) -> Option<HashMap<K, V>> {
+        if self.maps.len() == 1 {
+            let ret = replace(&mut self.maps[0], HashMap::new());
+            Some(ret)
+        } else {
+            self.maps.pop()
+        }
     }
 }
 
@@ -126,6 +140,12 @@ mod test {
         
         assert_eq!(chain_map.get(&"test"), Some(&1));
     }
+
+    #[test]
+    fn get_none() {
+        let chain_map: ChainMap<&str, ()> = ChainMap::default();
+        assert_eq!(chain_map.get(&"test"), None);
+    }
     
     #[test]
     fn get_mut() {
@@ -137,6 +157,19 @@ mod test {
         *test_value.unwrap() += 1;
         let changed = chain_map.get(&"test");
         assert_eq!(changed, Some(&2));
+    }
+
+    #[test]
+    fn get_mut_outer() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("outer", 1);
+        chain_map.new_child();
+        chain_map.insert("inner", 2);
+        let ret = chain_map.get_mut("outer").unwrap();
+        *ret += 9000;
+
+        let changed = chain_map.get(&"outer");
+        assert_eq!(changed, Some(&9001));
     }
 
     #[test]
@@ -164,6 +197,26 @@ mod test {
         chain_map.insert("x", 1);
         assert_eq!(chain_map.get("x"), Some(&1));
         assert_eq!(chain_map.get("y"), Some(&2));
+    }
 
+    #[test]
+    fn pop() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("x", 0);
+        chain_map.insert("y", 2);
+        chain_map.new_child();
+        chain_map.insert("x", 1);
+        let ret = chain_map.pop().unwrap();
+        assert_eq!(ret.get("x"), Some(&1));
+        assert_eq!(chain_map.get("x"), Some(&0));
+    }
+
+    #[test]
+    fn pop_length_1() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("x", 0);
+        let _ = chain_map.pop();
+        assert_eq!(chain_map.get("x"), None);
+        assert!(chain_map.maps.len() == 1);
     }
 }

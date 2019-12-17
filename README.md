@@ -14,5 +14,5 @@ function me() {
     console.log(x); //prints 1
     console.log(y); //prints 2
 }
-
+console.log(x) //prints 0
 ```
