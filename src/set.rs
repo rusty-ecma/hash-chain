@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::HashSet, hash::Hash, mem::replace, ops::Index};
+use std::{borrow::Borrow, collections::HashSet, hash::Hash, mem::replace};
 
 pub struct ChainSet<T> {
     pub(crate) sets: Vec<HashSet<T>>,
