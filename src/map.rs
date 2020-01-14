@@ -54,11 +54,13 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        if idx >= self.maps.len() {
-            return None;
-        }
+        let iter = if idx >= self.maps.len() {
+            self.maps.iter()
+        } else {
+            self.maps[0..idx].iter()
+        };
 
-        for map in self.maps[0..idx].iter().rev() {
+        for map in iter.rev() {
             if let Some(v) = map.get(key) {
                 return Some(v);
             }
@@ -71,11 +73,13 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        if idx >= self.maps.len() {
-            return None;
-        }
+        let iter = if idx >= self.maps.len() {
+            self.maps.iter_mut()
+        } else {
+            self.maps[0..idx].iter_mut()
+        };
 
-        for map in self.maps[0..idx].iter_mut().rev() {
+        for map in iter.rev() {
             if let Some(v) = map.get_mut(key) {
                 return Some(v);
             }
