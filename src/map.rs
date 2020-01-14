@@ -1,7 +1,7 @@
 use std::{borrow::Borrow, collections::HashMap, hash::Hash, mem::replace, ops::Index};
 
-pub struct ChainMap<K, V> {
-    pub(crate) maps: Vec<HashMap<K, V>>,
+pub struct ChainMap<K, V, S = std::collections::hash_map::RandomState> {
+    pub(crate) maps: Vec<HashMap<K, V, S>>,
 }
 
 impl<K: Hash + Eq, V> ChainMap<K, V> {
