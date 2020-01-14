@@ -49,6 +49,40 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         None
     }
 
+    pub fn get_before<Q: ?Sized>(&self, idx: usize, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        if idx >= self.maps.len() {
+            return None
+        }
+
+        for map in self.maps[0..idx].iter().rev() {
+            if let Some(v) = map.get(key) {
+                return Some(v)
+            }
+        }
+        None
+    }
+
+    pub fn get_before_mut<Q: ?Sized>(&mut self, idx: usize, key: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        if idx >= self.maps.len() {
+            return None
+        }
+
+        for map in self.maps[0..idx].iter_mut().rev() {
+            if let Some(v) = map.get_mut(key) {
+                return Some(v)
+            }
+        }
+        None
+    }
+
     pub fn new_child(&mut self) {
         self.maps.push(HashMap::new());
     }
@@ -279,5 +313,31 @@ mod test {
             chain_map.new_child();
             assert_eq!(chain_map.child_len(), i);
         }
+    }
+
+    #[test]
+    fn get_before_exists() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("test", 1);
+        chain_map.new_child();
+        chain_map.insert("test", 2);
+
+        assert_eq!(chain_map.get_before(1, &"test"), Some(&1));
+    }
+
+    #[test]
+    fn get_before_mut_exists() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("test", 1);
+        chain_map.new_child();
+        chain_map.insert("test", 2);
+
+        let test_value = chain_map.get_before_mut(1, &"test");
+        assert_eq!(test_value, Some(&mut 1));
+        *test_value.unwrap() += 2;
+        let changed = chain_map.get_before(1, &"test");
+        assert_eq!(changed, Some(&3));
+        let child = chain_map.get("test");
+        assert_eq!(child, Some(&2));
     }
 }
