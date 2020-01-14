@@ -65,6 +65,26 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
             self.maps.pop()
         }
     }
+
+    pub fn last_has<Q: ?Sized>(&mut self, key: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.has_at(self.maps.len() - 1, key)
+    }
+
+    pub fn has_at<Q: ?Sized>(&mut self, idx: usize, key: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        if let Some(map) = self.maps.get(idx) {
+            map.contains_key(key)
+        } else {
+            false
+        }
+    }
 }
 
 impl<K: Hash + Eq, V> Default for ChainMap<K, V> {
@@ -209,5 +229,40 @@ mod test {
         let _ = chain_map.remove_child();
         assert_eq!(chain_map.get("x"), None);
         assert!(chain_map.maps.len() == 1);
+    }
+
+    #[test]
+    fn has_at_exists() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("x", 0);
+
+        assert!(chain_map.has_at(0, &"x"));
+    }
+
+    #[test]
+    fn has_at_doesnt_exist() {
+        let mut chain_map: ChainMap<&str, ()> = ChainMap::default();
+
+        assert!(!chain_map.has_at(11, &"x"));
+    }
+
+    #[test]
+    fn last_has_true() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("x", 0);
+        chain_map.new_child();
+        chain_map.insert("y", 1);
+
+        assert!(chain_map.last_has(&"y"));
+    }
+
+    #[test]
+    fn last_has_false() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("x", 0);
+        chain_map.new_child();
+        chain_map.insert("y", 1);
+
+        assert!(!chain_map.last_has(&"x"));
     }
 }
