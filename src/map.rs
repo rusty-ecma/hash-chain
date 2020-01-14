@@ -55,12 +55,12 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         Q: Hash + Eq,
     {
         if idx >= self.maps.len() {
-            return None
+            return None;
         }
 
         for map in self.maps[0..idx].iter().rev() {
             if let Some(v) = map.get(key) {
-                return Some(v)
+                return Some(v);
             }
         }
         None
@@ -72,12 +72,12 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         Q: Hash + Eq,
     {
         if idx >= self.maps.len() {
-            return None
+            return None;
         }
 
         for map in self.maps[0..idx].iter_mut().rev() {
             if let Some(v) = map.get_mut(key) {
-                return Some(v)
+                return Some(v);
             }
         }
         None

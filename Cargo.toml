@@ -1,10 +1,10 @@
 [package]
 name = "hash-chain"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Robert Masen <r.f.masen@gmail.com>", "Ben Gummoe <b.gummoe@gmail.com>"]
 edition = "2018"
 license = "MIT"
-repository = "https://github.com/freemasen/hash-chain"
+repository = "https://github.com/rusty-ecma/hash-chain"
 readme = "README.md"
 description = "A tiered hashmap and hashset implementation that allows for easily representing lexically scoped variables"
 keywords = ["collections", "hashmap", "scope", "lexical"]
