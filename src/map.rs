@@ -127,6 +127,19 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
     pub fn child_len(&self) -> usize {
         self.maps.len()
     }
+
+    pub fn get_last_index<Q: ?Sized>(&self, key: &Q) -> Option<usize>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        for (i, map) in self.maps.iter().enumerate().rev() {
+            if map.contains_key(key) {
+                return Some(i);
+            }
+        }
+        None
+    }
 }
 
 impl<K: Hash + Eq, V> Default for ChainMap<K, V> {
@@ -343,5 +356,26 @@ mod test {
         assert_eq!(changed, Some(&3));
         let child = chain_map.get("test");
         assert_eq!(child, Some(&2));
+    }
+
+    #[test]
+    fn get_last_index_exists() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("test1", 1);
+        chain_map.new_child();
+        chain_map.insert("test2", 2);
+
+        assert_eq!(chain_map.get_last_index("test1"), Some(0));
+        assert_eq!(chain_map.get_last_index("test2"), Some(1));
+    }
+
+    #[test]
+    fn get_last_index_doesnt_exist() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("test1", 1);
+        chain_map.new_child();
+        chain_map.insert("test2", 2);
+
+        assert_eq!(chain_map.get_last_index("shmee"), None);
     }
 }
