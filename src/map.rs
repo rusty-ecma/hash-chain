@@ -14,6 +14,12 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         let map = self.maps.last_mut()?;
         map.insert(key, value)
     }
+
+    pub fn insert_at(&mut self, idx: usize, key: K, value: V) -> Option<V> {
+        let map = self.maps.get_mut(idx)?;
+        map.insert(key, value)
+    }
+
     /// Returns the key-value pair corresponding to the supplied key.
     ///
     /// The supplied key may be any borrowed form of the map's key type, but
@@ -197,6 +203,17 @@ mod test {
         assert!(chain_map.insert("test", 1).is_none());
 
         assert_eq!(chain_map.maps[0].get("test"), Some(&1));
+    }
+
+    #[test]
+    fn insert_at() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("banana", "milk");
+        chain_map.new_child();
+
+        chain_map.insert_at(0, "strawberry", "soda");
+        assert_eq!(chain_map.maps[0].get("strawberry"), Some(&"soda"));
+        assert_eq!(chain_map.maps[1].get("strawberry"), None);
     }
 
     #[test]
