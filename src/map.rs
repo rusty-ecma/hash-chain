@@ -15,9 +15,12 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         map.insert(key, value)
     }
 
-    pub fn insert_at(&mut self, idx: usize, key: K, value: V) -> Option<V> {
-        let map = self.maps.get_mut(idx)?;
-        map.insert(key, value)
+    pub fn insert_at(&mut self, idx: usize, key: K, value: V) -> Result<Option<V>, crate::Error> {
+        if let Some(map) = self.maps.get_mut(idx) {
+            Ok(map.insert(key, value))
+        } else {
+            Err(crate::Error::IndexOutOfRange)
+        }
     }
 
     /// Returns the key-value pair corresponding to the supplied key.
@@ -211,9 +214,19 @@ mod test {
         chain_map.insert("banana", "milk");
         chain_map.new_child();
 
-        chain_map.insert_at(0, "strawberry", "soda");
+        chain_map.insert_at(0, "strawberry", "soda").unwrap();
         assert_eq!(chain_map.maps[0].get("strawberry"), Some(&"soda"));
         assert_eq!(chain_map.maps[1].get("strawberry"), None);
+    }
+
+    #[test]
+    #[should_panic = "IndexOutOfRange"]
+    fn insert_at_out_of_bounds() {
+        let mut chain_map = ChainMap::default();
+        chain_map.insert("banana", "milk");
+        chain_map.new_child();
+
+        chain_map.insert_at(37, "strawberry", "soda").unwrap();
     }
 
     #[test]
