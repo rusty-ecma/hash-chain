@@ -1,11 +1,13 @@
-use std::{borrow::Borrow, collections::HashMap, hash::Hash, mem::replace, ops::Index};
+use std::{borrow::Borrow, collections::HashMap, hash::Hash, mem::take, ops::Index};
+use std::collections::hash_map::RandomState;
+use std::hash::BuildHasher;
 
-pub struct ChainMap<K, V, S = std::collections::hash_map::RandomState> {
+pub struct ChainMap<K, V, S = RandomState> {
     pub(crate) maps: Vec<HashMap<K, V, S>>,
 }
 
-impl<K: Hash + Eq, V> ChainMap<K, V> {
-    pub fn new(map: HashMap<K, V>) -> Self {
+impl<K: Hash + Eq, V, S: BuildHasher> ChainMap<K, V, S> {
+    pub fn new(map: HashMap<K, V, S>) -> Self {
         Self { maps: vec![map] }
     }
     /// Inserts a key-value pair into the map.
@@ -96,21 +98,8 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
         None
     }
 
-    pub fn new_child(&mut self) {
-        self.maps.push(HashMap::new());
-    }
-
-    pub fn new_child_with(&mut self, map: HashMap<K, V>) {
+    pub fn new_child_with(&mut self, map: HashMap<K, V, S>) {
         self.maps.push(map);
-    }
-
-    pub fn remove_child(&mut self) -> Option<HashMap<K, V>> {
-        if self.maps.len() == 1 {
-            let ret = replace(&mut self.maps[0], HashMap::new());
-            Some(ret)
-        } else {
-            self.maps.pop()
-        }
     }
 
     pub fn last_has<Q: ?Sized>(&self, key: &Q) -> bool
@@ -151,6 +140,21 @@ impl<K: Hash + Eq, V> ChainMap<K, V> {
     }
 }
 
+impl<K: Hash + Eq, V, S: BuildHasher + Default> ChainMap<K, V, S> {
+    pub fn new_child(&mut self) {
+        self.maps.push(HashMap::default());
+    }
+
+    pub fn remove_child(&mut self) -> Option<HashMap<K, V, S>> {
+        if self.maps.len() == 1 {
+            let ret = take(&mut self.maps[0]);
+            Some(ret)
+        } else {
+            self.maps.pop()
+        }
+    }
+}
+
 impl<K: Hash + Eq, V> Default for ChainMap<K, V> {
     fn default() -> Self {
         Self {
@@ -159,10 +163,11 @@ impl<K: Hash + Eq, V> Default for ChainMap<K, V> {
     }
 }
 
-impl<K, Q: ?Sized, V> Index<&Q> for ChainMap<K, V>
+impl<K, Q: ?Sized, V, S> Index<&Q> for ChainMap<K, V, S>
 where
     K: Eq + Hash + Borrow<Q>,
     Q: Eq + Hash,
+    S: BuildHasher,
 {
     type Output = V;
 
