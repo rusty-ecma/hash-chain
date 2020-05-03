@@ -1,12 +1,20 @@
-use std::{borrow::Borrow, collections::HashMap, hash::Hash, mem::take, ops::Index};
-use std::collections::hash_map::RandomState;
-use std::hash::BuildHasher;
+use std::{
+    borrow::Borrow,
+    collections::{hash_map::RandomState, HashMap},
+    hash::{BuildHasher, Hash},
+    mem::take,
+    ops::Index,
+};
 
 pub struct ChainMap<K, V, S = RandomState> {
     pub(crate) maps: Vec<HashMap<K, V, S>>,
 }
 
-impl<K: Hash + Eq, V, S: BuildHasher> ChainMap<K, V, S> {
+impl<K: Hash + Eq, V, S: BuildHasher> ChainMap<K, V, S>
+where
+    K: Hash + Eq,
+    S: BuildHasher,
+{
     pub fn new(map: HashMap<K, V, S>) -> Self {
         Self { maps: vec![map] }
     }
@@ -155,7 +163,10 @@ impl<K: Hash + Eq, V, S: BuildHasher + Default> ChainMap<K, V, S> {
     }
 }
 
-impl<K: Hash + Eq, V> Default for ChainMap<K, V> {
+impl<K, V> Default for ChainMap<K, V>
+where
+    K: Hash + Eq,
+{
     fn default() -> Self {
         Self {
             maps: vec![HashMap::new()],
@@ -179,6 +190,38 @@ where
     #[inline]
     fn index(&self, key: &Q) -> &V {
         self.get(key).expect("no entry found for key")
+    }
+}
+
+impl<K, V, S> PartialEq for ChainMap<K, V, S>
+where
+    K: Eq + Hash,
+    V: PartialEq,
+    S: std::hash::BuildHasher,
+{
+    fn eq(&self, other: &ChainMap<K, V, S>) -> bool {
+        self.maps == other.maps
+    }
+}
+
+impl<K, V, S> Eq for ChainMap<K, V, S>
+where
+    K: Eq + Hash,
+    V: Eq,
+    S: BuildHasher,
+{
+}
+
+impl<K, V, S> core::fmt::Debug for ChainMap<K, V, S>
+where
+    K: Eq + Hash + core::fmt::Debug,
+    V: core::fmt::Debug,
+    S: BuildHasher,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("ChainMap")
+            .field("maps", &self.maps)
+            .finish()
     }
 }
 
