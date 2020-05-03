@@ -1,7 +1,17 @@
 use std::{borrow::Borrow, collections::HashMap, hash::Hash, mem::replace, ops::Index};
 
+#[derive(Clone)]
 pub struct ChainMap<K, V, S = std::collections::hash_map::RandomState> {
     pub(crate) maps: Vec<HashMap<K, V, S>>,
+}
+
+impl<K, V, S> std::fmt::Debug for ChainMap<K,V,S> 
+where K: std::fmt::Debug, V: std::fmt::Debug {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Foo")
+            .field("maps", &self.maps)
+            .finish()
+    }
 }
 
 impl<K: Hash + Eq, V> ChainMap<K, V> {
@@ -177,6 +187,24 @@ where
     }
 }
 
+impl<K, V, S> PartialEq for ChainMap<K, V, S>
+where
+    K: Eq + Hash,
+    V: PartialEq,
+    S: std::hash::BuildHasher,
+{
+    fn eq(&self, other: &ChainMap<K, V, S>) -> bool {
+        self.maps == other.maps
+    }
+}
+
+impl<K, V, S> Eq for ChainMap<K, V, S>
+where
+    K: Eq + Hash,
+    V: Eq,
+    S: std::hash::BuildHasher,
+{
+}
 #[cfg(test)]
 mod test {
     use super::*;
