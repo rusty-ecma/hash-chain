@@ -6,6 +6,7 @@ use std::{
     ops::Index,
 };
 
+#[derive(Clone)]
 pub struct ChainMap<K, V, S = RandomState> {
     pub(crate) maps: Vec<HashMap<K, V, S>>,
 }
