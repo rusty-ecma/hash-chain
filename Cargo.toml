@@ -11,7 +11,7 @@ keywords = ["collections", "hashmap", "scope", "lexical"]
 categories = ["data-structures"]
 
 [dependencies]
-im-rc = { version = "", optional = true }
+im-rc = { version = "14", optional = true }
 
 [dev-dependencies]
 hashers = "1"
