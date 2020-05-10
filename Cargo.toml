@@ -1,6 +1,6 @@
 [package]
 name = "hash-chain"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Robert Masen <r.f.masen@gmail.com>", "Ben Gummoe <b.gummoe@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -11,3 +11,11 @@ keywords = ["collections", "hashmap", "scope", "lexical"]
 categories = ["data-structures"]
 
 [dependencies]
+im-rc = { version = "14", optional = true }
+
+[dev-dependencies]
+hashers = "1"
+
+[features]
+default = []
+imutable = ["im-rc"]
