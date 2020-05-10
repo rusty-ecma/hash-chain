@@ -13,6 +13,9 @@ categories = ["data-structures"]
 [dependencies]
 im-rc = { version = "", optional = true }
 
+[dev-dependencies]
+hashers = "1"
+
 [features]
 default = []
 imutable = ["im-rc"]

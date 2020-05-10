@@ -468,4 +468,19 @@ mod test {
 
         assert_eq!(chain_map.get_last_index("shmee"), None);
     }
+
+    #[test]
+    fn custom_hasher() {
+        // note: this test is about type checking
+        // rather than actual assertions
+        use std::hash::BuildHasherDefault;
+        use hashers::oz::DJB2Hasher; 
+        let hm = HashMap::with_hasher(BuildHasherDefault::<DJB2Hasher>::default());
+        let mut cm = ChainMap::new(hm);
+        cm.insert("test1", 1);
+        cm.new_child();
+        cm.insert("test1", 1);
+        cm.remove_child();
+        cm["test1"];
+    }
 }
