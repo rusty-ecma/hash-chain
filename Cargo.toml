@@ -11,3 +11,8 @@ keywords = ["collections", "hashmap", "scope", "lexical"]
 categories = ["data-structures"]
 
 [dependencies]
+im-rc = { version = "", optional = true }
+
+[features]
+default = []
+imutable = ["im-rc"]

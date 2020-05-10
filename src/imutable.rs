@@ -1,28 +1,30 @@
 use std::{
     borrow::Borrow,
-    collections::{hash_map::RandomState, HashMap},
+    collections::{hash_map::RandomState},
     hash::{BuildHasher, Hash},
     mem::take,
     ops::Index,
 };
+use im_rc::{Vector, HashMap};
 
 #[derive(Clone)]
-pub struct ChainMap<K, V, S = RandomState> {
-    pub(crate) maps: Vec<HashMap<K, V, S>>,
+pub struct LockedChainMap<K, V, S = RandomState> {
+    pub(crate) maps: Vector<HashMap<K, V, S>>,
 }
 
-impl<K: Hash + Eq, V, S: BuildHasher> ChainMap<K, V, S>
+impl<K, V, S: BuildHasher> LockedChainMap<K, V, S>
 where
-    K: Hash + Eq,
-    S: BuildHasher,
+    K: Hash + Eq + Clone,
+    V: Clone,
+    S: BuildHasher + Clone,
 {
     pub fn new(map: HashMap<K, V, S>) -> Self {
-        Self { maps: vec![map] }
+        Self { maps: Vector::unit(map) }
     }
     /// Inserts a key-value pair into the map.
     /// If the map did not have this key present, None is returned.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        let map = self.maps.last_mut()?;
+        let map = self.maps.get_mut(self.maps.len() - 1)?;
         map.insert(key, value)
     }
 
@@ -74,15 +76,11 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        let iter = if idx >= self.maps.len() {
-            self.maps.iter()
-        } else {
-            self.maps[0..idx].iter()
-        };
-
-        for map in iter.rev() {
-            if let Some(v) = map.get(key) {
-                return Some(v);
+        for i in (0..idx).rev() {
+            if let Some(map) = self.maps.get(i) {
+                if let Some(v) = map.get(key) {
+                    return Some(v)
+                }
             }
         }
         None
@@ -93,22 +91,19 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        let iter = if idx >= self.maps.len() {
-            self.maps.iter_mut()
-        } else {
-            self.maps[0..idx].iter_mut()
-        };
-
-        for map in iter.rev() {
+        for (i, map) in self.maps.iter_mut().enumerate().rev() {
+            if i > idx {
+                continue;
+            } 
             if let Some(v) = map.get_mut(key) {
-                return Some(v);
+                return Some(v)
             }
         }
         None
     }
 
     pub fn new_child_with(&mut self, map: HashMap<K, V, S>) {
-        self.maps.push(map);
+        self.maps.push_back(map);
     }
 
     pub fn last_has<Q: ?Sized>(&self, key: &Q) -> bool
@@ -147,21 +142,6 @@ where
         }
         None
     }
-}
-
-impl<K: Hash + Eq, V, S: BuildHasher + Default> ChainMap<K, V, S> {
-    pub fn new_child(&mut self) {
-        self.maps.push(HashMap::default());
-    }
-
-    pub fn remove_child(&mut self) -> Option<HashMap<K, V, S>> {
-        if self.maps.len() == 1 {
-            let ret = take(&mut self.maps[0]);
-            Some(ret)
-        } else {
-            self.maps.pop()
-        }
-    }
 
     pub fn split_off(&mut self, idx: usize) -> Self {
         let maps = self.maps.split_off(idx);
@@ -170,27 +150,44 @@ impl<K: Hash + Eq, V, S: BuildHasher + Default> ChainMap<K, V, S> {
         }
     }
 
-    pub fn append(&mut self, other: &mut Self) {
-        self.maps.append(&mut other.maps);
+    pub fn append(&mut self, other: Self) {
+        self.maps.append(other.maps);
     }
 }
 
-impl<K, V> Default for ChainMap<K, V>
-where
-    K: Hash + Eq,
-{
-    fn default() -> Self {
-        Self {
-            maps: vec![HashMap::new()],
+impl<K: Hash + Eq + Clone, V: Clone, S: BuildHasher + Default + Clone> LockedChainMap<K, V, S> {
+    pub fn new_child(&mut self) {
+        self.maps.push_back(HashMap::default());
+    }
+
+    pub fn remove_child(&mut self) -> Option<HashMap<K, V, S>> {
+        if self.maps.len() == 1 {
+            let ret = take(&mut self.maps[0]);
+            Some(ret)
+        } else {
+            self.maps.pop_back()
         }
     }
 }
 
-impl<K, Q: ?Sized, V, S> Index<&Q> for ChainMap<K, V, S>
+impl<K, V> Default for LockedChainMap<K, V>
 where
-    K: Eq + Hash + Borrow<Q>,
-    Q: Eq + Hash,
-    S: BuildHasher,
+    K: Hash + Eq + Clone,
+    V: Clone
+{
+    fn default() -> Self {
+        let maps = Vector::unit(HashMap::new());
+        Self {
+            maps,
+        }
+    }
+}
+
+impl<K, Q: ?Sized, V: Clone, S> Index<&Q> for LockedChainMap<K, V, S>
+where
+    K: Eq + Hash + Borrow<Q> + Clone,
+    Q: Eq + Hash + Clone,
+    S: BuildHasher + Clone,
 {
     type Output = V;
 
@@ -205,33 +202,33 @@ where
     }
 }
 
-impl<K, V, S> PartialEq for ChainMap<K, V, S>
+impl<K, V, S> PartialEq for LockedChainMap<K, V, S>
 where
-    K: Eq + Hash,
-    V: PartialEq,
-    S: std::hash::BuildHasher,
+    K: Eq + Hash + Clone,
+    V: PartialEq + Clone,
+    S: std::hash::BuildHasher + Clone,
 {
-    fn eq(&self, other: &ChainMap<K, V, S>) -> bool {
+    fn eq(&self, other: &LockedChainMap<K, V, S>) -> bool {
         self.maps == other.maps
     }
 }
 
-impl<K, V, S> Eq for ChainMap<K, V, S>
+impl<K, V, S> Eq for LockedChainMap<K, V, S>
 where
-    K: Eq + Hash,
-    V: Eq,
-    S: BuildHasher,
+    K: Eq + Hash + Clone,
+    V: Eq + Clone,
+    S: BuildHasher + Clone,
 {
 }
 
-impl<K, V, S> core::fmt::Debug for ChainMap<K, V, S>
+impl<K, V, S> core::fmt::Debug for LockedChainMap<K, V, S>
 where
-    K: Eq + Hash + core::fmt::Debug,
-    V: core::fmt::Debug,
-    S: BuildHasher,
+    K: Eq + Hash + core::fmt::Debug + Clone,
+    V: core::fmt::Debug + Clone,
+    S: BuildHasher + Clone,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("ChainMap")
+        f.debug_struct("LockedChainMap")
             .field("maps", &self.maps)
             .finish()
     }
@@ -246,7 +243,7 @@ mod test {
     fn initialization() {
         let mut test_map = HashMap::new();
         test_map.insert("test", 1);
-        let chain_map = ChainMap::new(test_map);
+        let chain_map = LockedChainMap::new(test_map);
 
         assert!(chain_map.maps.len() > 0);
         assert_eq!(chain_map.maps[0].get("test"), Some(&1));
@@ -254,7 +251,7 @@ mod test {
 
     #[test]
     fn initialization_default() {
-        let chain_map: ChainMap<(), ()> = ChainMap::default();
+        let chain_map: LockedChainMap<(), ()> = LockedChainMap::default();
 
         assert!(chain_map.maps.len() > 0);
         assert!(chain_map.maps[0].is_empty());
@@ -262,7 +259,7 @@ mod test {
 
     #[test]
     fn insert() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         assert!(chain_map.insert("test", 1).is_none());
 
         assert_eq!(chain_map.maps[0].get("test"), Some(&1));
@@ -270,7 +267,7 @@ mod test {
 
     #[test]
     fn insert_at() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("banana", "milk");
         chain_map.new_child();
 
@@ -282,7 +279,7 @@ mod test {
     #[test]
     #[should_panic = "IndexOutOfRange"]
     fn insert_at_out_of_bounds() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("banana", "milk");
         chain_map.new_child();
 
@@ -291,7 +288,7 @@ mod test {
 
     #[test]
     fn get() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test", 1);
 
         assert_eq!(chain_map.get(&"test"), Some(&1));
@@ -299,13 +296,13 @@ mod test {
 
     #[test]
     fn get_none() {
-        let chain_map: ChainMap<&str, ()> = ChainMap::default();
+        let chain_map: LockedChainMap<&str, ()> = LockedChainMap::default();
         assert_eq!(chain_map.get(&"test"), None);
     }
 
     #[test]
     fn get_mut() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test", 1);
 
         let test_value = chain_map.get_mut(&"test");
@@ -317,7 +314,7 @@ mod test {
 
     #[test]
     fn get_mut_outer() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("outer", 1);
         chain_map.new_child();
         chain_map.insert("inner", 2);
@@ -330,7 +327,7 @@ mod test {
 
     #[test]
     fn index() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test", 1);
 
         assert_eq!(chain_map[&"test"], 1);
@@ -338,7 +335,7 @@ mod test {
 
     #[test]
     fn new_child() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test", 1);
         chain_map.new_child();
         assert!(chain_map.maps.len() > 1);
@@ -346,7 +343,7 @@ mod test {
 
     #[test]
     fn scopes() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("x", 0);
         chain_map.insert("y", 2);
         chain_map.new_child();
@@ -357,7 +354,7 @@ mod test {
 
     #[test]
     fn remove_child() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("x", 0);
         chain_map.insert("y", 2);
         chain_map.new_child();
@@ -369,7 +366,7 @@ mod test {
 
     #[test]
     fn remove_child_length_1() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("x", 0);
         let _ = chain_map.remove_child();
         assert_eq!(chain_map.get("x"), None);
@@ -378,7 +375,7 @@ mod test {
 
     #[test]
     fn has_at_exists() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("x", 0);
 
         assert!(chain_map.has_at(0, &"x"));
@@ -386,14 +383,14 @@ mod test {
 
     #[test]
     fn has_at_doesnt_exist() {
-        let chain_map: ChainMap<&str, ()> = ChainMap::default();
+        let chain_map: LockedChainMap<&str, ()> = LockedChainMap::default();
 
         assert!(!chain_map.has_at(11, &"x"));
     }
 
     #[test]
     fn last_has_true() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("x", 0);
         chain_map.new_child();
         chain_map.insert("y", 1);
@@ -403,7 +400,7 @@ mod test {
 
     #[test]
     fn last_has_false() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("x", 0);
         chain_map.new_child();
         chain_map.insert("y", 1);
@@ -413,7 +410,7 @@ mod test {
 
     #[test]
     fn child_len() {
-        let mut chain_map: ChainMap<&str, ()> = ChainMap::default();
+        let mut chain_map: LockedChainMap<&str, ()> = LockedChainMap::default();
         assert_eq!(chain_map.child_len(), 1);
 
         for i in 2..100 {
@@ -424,7 +421,7 @@ mod test {
 
     #[test]
     fn get_before_exists() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test", 1);
         chain_map.new_child();
         chain_map.insert("test", 2);
@@ -434,7 +431,7 @@ mod test {
 
     #[test]
     fn get_before_mut_exists() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test", 1);
         chain_map.new_child();
         chain_map.insert("test", 2);
@@ -450,7 +447,7 @@ mod test {
 
     #[test]
     fn get_last_index_exists() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test1", 1);
         chain_map.new_child();
         chain_map.insert("test2", 2);
@@ -461,7 +458,7 @@ mod test {
 
     #[test]
     fn get_last_index_doesnt_exist() {
-        let mut chain_map = ChainMap::default();
+        let mut chain_map = LockedChainMap::default();
         chain_map.insert("test1", 1);
         chain_map.new_child();
         chain_map.insert("test2", 2);
